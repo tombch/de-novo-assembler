@@ -5,34 +5,33 @@ from timeit import default_timer as timer
 
 def main():
     # Example 1
-    start = timer()
     message = 'a_galaxy_far_far_far_far_away...'
     kmers = ar.get_kmers(message, 3)
     random.shuffle(kmers)
+    start = timer()
     assembled_message = ar.assemble(kmers)
-    distance = ar.hamming_distance(message, assembled_message)
     end = timer()
+    print(f'assembly time: {end - start}')
+    distance = ar.hamming_distance(message, assembled_message)
     print(f'dist(original, assembled) = {distance}')
-    print(f'time taken: {end - start}')
 
     # Example 2
-    start = timer()
     sequence = ar.generate_sequence(100000)
     coverage = 100
     kmers = []
-    # Simulate kmers drawn from reads
+    # Simulate noisy kmers
     for i in range(coverage):
-        kmers += ar.mutate(ar.get_kmers(sequence, 100), 10000)
+        kmers += ar.mutate(ar.get_kmers(sequence, 100), num_mutations=10000)
     kmer_count = ar.count_kmers(kmers)
-    threshold = 10
-    coverage = ar.estimate_coverage(kmer_count, threshold)
-    kmers = ar.reduce_kmers(kmer_count, coverage)
+    coverage_estimate = ar.estimate_coverage(kmer_count, threshold=10)
+    kmers = ar.reduce_kmers(kmer_count, coverage_estimate)
     random.shuffle(kmers)
+    start = timer()
     assembled_sequence = ar.assemble(kmers, describe=True)
-    distance = ar.hamming_distance(sequence, assembled_sequence)
     end = timer()
+    print(f'assembly time: {end - start}')
+    distance = ar.hamming_distance(sequence, assembled_sequence)
     print(f'dist(original, assembled) = {distance}')
-    print(f'time taken: {end - start}')
 
 
 if __name__ == '__main__':
