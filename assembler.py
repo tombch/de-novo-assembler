@@ -25,7 +25,7 @@ def hamming_distance(seq1, seq2):
 
 def get_kmers(sequence, k):
     '''
-    Get all substrings of length k from the given sequence.
+    Return all substrings of length k from the given sequence.
     '''
     kmers = [sequence[i : i + k] for i in range(len(sequence) - k + 1)]
     return kmers
@@ -115,7 +115,7 @@ def reduce_kmers(kmer_count, coverage):
 
 def de_bruijn_graph(kmers):
     '''
-    Get a De Bruijn graph from the given kmers.
+    Return a De Bruijn graph from the given kmers.
     '''
     graph = {}
     for kmer in kmers:
@@ -133,8 +133,8 @@ def de_bruijn_graph(kmers):
 
 def eulerian_path(graph):
     '''
-    Use Hierholzer's algorithm to find and return a Eulerian path in the given graph.
-    If a Eulerian path does not exist, returns None.
+    Use Hierholzer's algorithm to find and return an Eulerian path in the given graph.
+    If an Eulerian path does not exist, returns None.
     '''
     path = collections.deque()
     edge_count = 0
@@ -152,7 +152,7 @@ def eulerian_path(graph):
             end_count += 1
         elif len(edge_nodes['in']) == len(edge_nodes['out']):
             equal_count += 1
-    # Return None if a Eulerian path does not exist
+    # Return None if an Eulerian path does not exist
     correct_degree_count = start_count + end_count + equal_count
     if start_count > 1 or end_count > 1 or correct_degree_count != len(graph):
         return None
@@ -182,11 +182,11 @@ def join(path):
     '''
     Join together the given Eulerian path to form a sequence.
     '''
+    path = list(path)
     sequence = path[0]
-    for i, node in enumerate(path):
-        if i != 0:
-            k = len(path[i - 1])
-            sequence += node[k - 1:]
+    for i, node in enumerate(path[1:], start=1):
+        k = len(path[i - 1])
+        sequence += node[k - 1:]
     return sequence
 
 
