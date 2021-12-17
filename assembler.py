@@ -1,5 +1,6 @@
 import random
 import collections
+import matplotlib.pyplot as plt
 
 
 def generate_sequence(length):
@@ -33,34 +34,39 @@ def get_kmers(sequence, k):
 
 def count_kmers(kmers):
     '''
-    Transform list of kmers to a kmer_count dictionary. 
+    Transform list of kmers to a kmer_counts dictionary. 
     Unique kmers are the keys, and their number of appearances in the kmers list are the values. 
     '''
-    kmer_count = {}
+    kmer_counts = {}
     for kmer in kmers:
-        kmer_count[kmer] = 0
+        kmer_counts[kmer] = 0
     for kmer in kmers:
-        kmer_count[kmer] += 1
-    return kmer_count
+        kmer_counts[kmer] += 1
+    return kmer_counts
 
 
-def get_unique_counts(kmer_count):
+def get_unique_counts(kmer_counts):
     '''
-    Return all unique count values present in the kmer_count dictionary.
+    Return all unique kmer counts (and the number of kmers with this count) present in the kmer_counts dictionary.
     '''
-    unique_counts = []
-    for kmer, count in kmer_count.items():
+    unique_counts = {}
+    for kmer, count in kmer_counts.items():
         if not (count in unique_counts):
-            unique_counts.append(count)
-    return unique_counts
+            unique_counts[count] = 1
+        else:
+            unique_counts[count] += 1
+    unique_counts_list = []
+    for count, num_kmers in unique_counts.items():
+        unique_counts_list.append((count, num_kmers))
+    return unique_counts_list
 
 
-def list_kmers(kmer_count):
+def list_kmers(kmer_counts):
     '''
-    Transform kmer_count dictionary to a list of kmers.
+    Transform kmer_counts dictionary to a list of kmers.
     '''
     kmers = []
-    for kmer, count in kmer_count.items():
+    for kmer, count in kmer_counts.items():
         for i in range(count):
             kmers.append(kmer)
     return kmers
@@ -71,6 +77,8 @@ def mutate(kmers, num_mutations):
     Mutate a random base of a random kmer, with the number of mutations given by num_mutations.
     '''
     bases = ['A', 'T', 'C', 'G']
+    # Do not mutate original kmer list, but create a new list instead
+    kmers = list(kmers)
     for i in range(num_mutations):
         kmer_index = random.choice(range(len(kmers)))
         base_index = random.choice(range(len(kmers[kmer_index])))
@@ -78,15 +86,15 @@ def mutate(kmers, num_mutations):
     return kmers
 
 
-def estimate_coverage(kmer_count, threshold):
+def estimate_coverage(kmer_counts, threshold=0):
     '''
-    Given a kmer_count dictionary and a threshold for noise, estimate the number of sequences present.
+    Given a kmer_counts dictionary and a threshold for noise, estimate the number of sequences present.
     Any kmer that appears less than the threshold amount of times, will be assumed to be an error/noise and will be discarded.
     '''
     count_values = {}
-    for kmer, count in kmer_count.items():    
+    for kmer, count in kmer_counts.items():    
         count_values[count] = 0
-    for kmer, count in kmer_count.items():    
+    for kmer, count in kmer_counts.items():    
         count_values[count] += 1    
     max_value = 0
     coverage = 0
@@ -97,12 +105,12 @@ def estimate_coverage(kmer_count, threshold):
     return coverage
 
 
-def reduce_kmers(kmer_count, coverage):
+def reduce_kmers(kmer_counts, coverage):
     '''
-    Given a kmer_count dictionary and a coverage, return a scaled-down set of kmers that represent one instance of the sequence.
+    Given a kmer_counts dictionary and a coverage, return a scaled-down set of kmers that represent one instance of the sequence.
     '''
     kmers = []
-    for kmer, count in kmer_count.items():
+    for kmer, count in kmer_counts.items():
         remainder = count % coverage
         if remainder < (coverage - remainder):
             count = int((count - remainder) / coverage)
@@ -121,12 +129,13 @@ def de_bruijn_graph(kmers):
     for kmer in kmers:
         k = len(kmer)
         k_m1, k_m2 = get_kmers(kmer, k - 1)
-        graph[k_m1] = {'in' : collections.deque([]), 'out' : collections.deque([])} # Incoming edge nodes, outgoing edge nodes
-        graph[k_m2] = {'in' : collections.deque([]), 'out' : collections.deque([])}
+        # Each node records the number of incoming nodes and a deque of outgoing nodes
+        graph[k_m1] = {'in' : 0, 'out' : collections.deque([])}
+        graph[k_m2] = {'in' : 0, 'out' : collections.deque([])}
     for kmer in kmers:
         k = len(kmer)
         k_m1, k_m2 = get_kmers(kmer, k - 1)
-        graph[k_m2]['in'].append(k_m1)
+        graph[k_m2]['in'] += 1
         graph[k_m1]['out'].append(k_m2)
     return graph
 
@@ -145,12 +154,12 @@ def eulerian_path(graph):
     # Find valid start node, and determine path existence
     for node, edge_nodes in graph.items():
         edge_count += len(edge_nodes['out'])
-        if len(edge_nodes['out']) - len(edge_nodes['in']) == 1:
+        if len(edge_nodes['out']) - edge_nodes['in'] == 1:
             current_node = node
             start_count += 1
-        elif len(edge_nodes['in']) - len(edge_nodes['out']) == 1:
+        elif edge_nodes['in'] - len(edge_nodes['out']) == 1:
             end_count += 1
-        elif len(edge_nodes['in']) == len(edge_nodes['out']):
+        elif edge_nodes['in'] == len(edge_nodes['out']):
             equal_count += 1
     # Return None if an Eulerian path does not exist
     correct_degree_count = start_count + end_count + equal_count
@@ -188,6 +197,42 @@ def join(path):
         k = len(path[i - 1])
         sequence += node[k - 1:]
     return sequence
+
+
+def kmer_count_distribution(kmers, threshold=0, plot=False):
+    '''
+    Given a set of kmers, return a list describing the distribution of kmer count values (the number of times a kmer appears) in the set.
+    The list can also be optionally plotted by setting plot=True.
+    '''
+    kmer_counts = count_kmers(kmers)
+    kmer_counts_dist = sorted([(count, num_kmers) for (count, num_kmers) in get_unique_counts(kmer_counts) if count >= threshold], key=lambda x: x[0])
+    if plot:
+        plt.scatter(*zip(*kmer_counts_dist))
+        plt.xlabel("kmer count")
+        plt.ylabel("# kmers")
+        plt.show()
+    return kmer_counts_dist
+
+
+def estimate_coverage_reduce_kmers(kmers, threshold=0, describe=False):
+    '''
+    Estimate the coverage of a set of kmers on an unknown sequence.
+    Then, reduce the set of kmers down to a coverage value of 1 on the unknown kmers.
+    '''
+    if describe:
+        print('Finding kmer counts...', end=' ', flush=True)
+        kmer_counts = count_kmers(kmers)
+        print('done.')
+        print('Estimating coverage...', end=' ', flush=True)
+        coverage_estimate = estimate_coverage(kmer_counts, threshold=threshold)
+        print('done.')
+        print('Scaling down kmer coverage...', end=' ', flush=True)
+        kmers = reduce_kmers(kmer_counts, coverage_estimate)
+        print('done.')
+    else:
+        kmer_counts = count_kmers(kmers)
+        kmers = reduce_kmers(kmer_counts, estimate_coverage(kmer_counts, threshold=threshold))
+    return kmers
 
 
 def assemble(kmers, describe=False):
